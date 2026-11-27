@@ -164,3 +164,39 @@ td input, td select { font: inherit; padding: 6px 8px; border: 1px solid var(--l
   .catbar-num { grid-column: 1 / -1; text-align: left; }
   .tx-desc { white-space: normal; }
 }
+
+/* v2 additions: intro hook, bills calendar, 50/30/20 bar, goal history */
+.intro { background: var(--green-soft); border-color: #c9ddd0; font-size: 15px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 4px; }
+.card-head h2 { margin-bottom: 0; }
+.mini-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+.mini-table th, .mini-table td { padding: 5px 6px; border-top: 1px solid var(--line); }
+.mini-table thead th { border-top: none; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.total-row td { border-top: 2px solid var(--line); }
+.fifty { display: flex; height: 18px; border-radius: 6px; overflow: hidden; margin: 10px 0 14px; }
+.fifty-needs { background: #2e7d5b; }
+.fifty-wants { background: var(--amber); }
+.fifty-save { background: #3e6fb0; }
+.calc-row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+.calc-row label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.calc-row input { font: inherit; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; width: 110px; background: #fff; color: var(--ink); }
+#emg-result { font-size: 14px; margin-top: 12px; }
+
+/* Bills calendar */
+.calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 8px; }
+.cal-head { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; text-align: center; padding: 4px 0; }
+.cal-day { min-height: 52px; border: 1px solid var(--line); border-radius: 7px; padding: 4px 5px; background: #fff; font-size: 12px; }
+.cal-day.empty { background: transparent; border-color: transparent; }
+.cal-day.today { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.cal-num { display: block; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+.cal-bill { display: block; font-size: 10px; font-weight: 600; border-radius: 4px; padding: 1px 4px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-bill.paid { background: var(--green-soft); color: var(--green); }
+.cal-bill.pending { background: var(--amber-soft); color: #9a6d00; }
+.swatch { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 4px; padding: 1px 6px; }
+.swatch.paid { background: var(--green-soft); color: var(--green); }
+.swatch.pending { background: var(--amber-soft); color: #9a6d00; }
+
+@media (max-width: 720px) {
+  .cal-day { min-height: 40px; }
+  .cal-bill { font-size: 9px; }
+}

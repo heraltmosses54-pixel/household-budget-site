@@ -60,11 +60,40 @@
 
     var catOpts = D.CATEGORIES.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('');
 
+    var ss = D.safeSpend(state, ym);
+    var f5320 = D.fiftyThirtyTwenty(state, ym);
+    var series = D.trendSeries(state);
+    var idx = ym === '2026-11' ? 5 : 4;
+    var prevM = series[idx - 1];
+    var spendDiff = t.spent - prevM.spent;
+    var spendDiffPct = prevM.spent > 0 ? Math.round((spendDiff / prevM.spent) * 100) : 0;
+    var driverText;
+    if (ym === '2026-11') {
+      var byCatPrev = D.categorySpent(state, '2026-10');
+      var drivers = D.CATEGORIES.map(function (c) {
+        return { name: c.name, diff: byCat[c.id] - byCatPrev[c.id] };
+      }).filter(function (d) { return d.diff > 0; })
+        .sort(function (a, b) { return b.diff - a.diff; }).slice(0, 3);
+      driverText = drivers.map(function (d) { return esc(d.name) + ' (+' + D.fmt(d.diff) + ')'; }).join(', ');
+    } else {
+      driverText = 'smaller market runs and no motor service this month';
+    }
+    var heaviest = series.slice().sort(function (a, b) { return b.spent - a.spent; })[0];
+    var emergency = null;
+    state.goals.forEach(function (g) { if (g.id === 'g1') emergency = g; });
+    var coverMonths = (emergency && f5320.needs > 0) ? emergency.saved / f5320.needs : 0;
+
     return '<section class="hero">' +
-      '<div><h1>Good evening, Santoso family</h1>' +
-      '<p class="lede">Here is where the household money stands in ' + D.monthLabel(ym) +
-      ' — what came in, what went out, and what is left for the goals.</p></div>' +
+      '<div><h1>Every rupiah has a job.</h1>' +
+      '<p class="lede">The Santoso family’s ' + D.monthLabel(ym) + ' budget — ' + D.fmt(t.income) + ' in, ' +
+      D.fmt(t.spent) + ' out, ' + D.fmt(t.saved) + ' kept. ' +
+      (ss.daysLeft > 0 ? 'With ' + ss.daysLeft + ' days left in the month, ' + D.fmt(ss.perDay) + ' a day is still safe to spend.'
+        : 'The month is over — the books are closed.') + '</p></div>' +
       monthNav(state, ym) + '</section>' +
+
+      '<div class="card intro"><strong>The Santoso family · Magelang.</strong> Pak Santoso runs Toko Santoso, ' +
+      'Ibu sells online, and the kids Dita and Budi are in school. Four people, one wallet — ' +
+      'this is their real budget book for October and November 2026, down to the last warung receipt.</div>' +
 
       '<div class="stats">' +
       statCard('Income', D.fmt(t.income), 'Shop + online sales', 'green') +
@@ -89,6 +118,21 @@
       (t.spent <= totalBudget ? D.fmt(totalBudget - t.spent) + ' still free' : D.fmt(t.spent - totalBudget) + ' over budget') + '</p>' +
       '<h3 class="subhead">Savings goals</h3>' + goalRows +
       '<p class="cardlink"><a href="#/goals">Open savings goals →</a></p></div>' +
+      '</div>' +
+
+      '<div class="grid2">' +
+      '<div class="card"><h2>Six months at a glance</h2>' +
+      C.monthBars(series, 640, 260) +
+      '<p class="legend-line"><span class="dot" style="background:#2e7d5b"></span>Income &nbsp; <span class="dot" style="background:#c96a2e"></span>Spent</p>' +
+      '<p class="muted">' + esc(heaviest.month) + ' is the heaviest spending month of the last six at ' + D.fmt(heaviest.spent) + '.</p></div>' +
+
+      '<div class="card"><h2>What we found</h2><ul class="insights">' +
+      '<li>Spending is <strong>' + (spendDiff >= 0 ? 'up ' : 'down ') + D.fmt(Math.abs(spendDiff)) + ' (' +
+      (spendDiff >= 0 ? '+' : '−') + Math.abs(spendDiffPct) + '%)</strong> vs ' + esc(prevM.month) + ', driven by ' + driverText + '.</li>' +
+      '<li><strong>50 / 30 / 20 check:</strong> needs ' + f5320.needsPct + '% (rule: 50%), wants ' + f5320.wantsPct +
+      '% (rule: 30%), saved ' + f5320.savedPct + '% (rule: 20%). Needs run heavy on school fees — but the family still saves above the rule.</li>' +
+      '<li><strong>Emergency fund covers ' + coverMonths.toFixed(1) + ' months</strong> of needs. The rule of thumb is 3–6 months — try the calculator on the <a href="#/reports">Reports</a> page.</li>' +
+      '</ul></div>' +
       '</div>' +
 
       '<div class="grid2">' +
@@ -141,7 +185,8 @@
       statCard('Spent', D.fmt(t.spent), shown.length + ' of ' + txs.length + ' rows shown', 'orange') +
       statCard('Saved', D.fmt(t.saved), D.pct(t.saved, t.income) + '% of income kept', 'green') +
       '</div>' +
-      '<div class="card"><h2>All transactions</h2><div class="chips">' + chips + '</div>' +
+      '<div class="card"><div class="card-head"><h2>All transactions</h2>' +
+      '<button class="btn small ghost" data-action="export-csv">Export CSV</button></div><div class="chips">' + chips + '</div>' +
       '<div class="tablewrap"><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="c-amt">Amount</th><th></th></tr></thead>' +
       '<tbody>' + (rows || '<tr><td colspan="5" class="muted">Nothing here yet — add the first one below.</td></tr>') + '</tbody></table></div></div>' +
       '<div class="card"><h2>Add a transaction</h2>' +
@@ -196,6 +241,82 @@
       '<p class="form-note" id="budget-note" role="status"></p>';
   }
 
+  function billShort(name) {
+    if (name.indexOf('Les piano') === 0) return 'Les piano';
+    if (name.indexOf('Iuran') === 0) return 'Sampah';
+    return name.split(' ')[0];
+  }
+
+  function bills(state, ym) {
+    var list = D.billsFor(state, ym);
+    var total = 0, paidTotal = 0, paidCount = 0;
+    list.forEach(function (b) {
+      total += b.amount;
+      if (b.paid) { paidTotal += b.amount; paidCount++; }
+    });
+    var pending = list.filter(function (b) { return !b.paid; });
+    var debt = D.debtInfo();
+    var debtPct = D.pct(debt.paid, debt.total);
+
+    var rows = list.map(function (b) {
+      var cat = D.categoryById(b.cat);
+      return '<tr><td>' + esc(b.name) + '</td>' +
+        '<td class="c-date">' + b.due + ' ' + D.monthLabel(ym).split(' ')[0] + '</td>' +
+        '<td><span class="chip" style="background:' + cat.color + '1a;color:' + cat.color + '">' + esc(cat.name) + '</span></td>' +
+        '<td class="c-amt">' + D.fmt(b.amount) + '</td>' +
+        '<td>' + (b.paid ? '<span class="flag ok">Paid ✓</span>'
+          : '<span class="flag warn">Pending</span>') + '</td>' +
+        '<td class="c-act">' + (b.paid ? ''
+          : '<button class="mini" data-action="bill-pay" data-bill="' + b.id + '">Mark paid</button>') + '</td></tr>';
+    }).join('');
+
+    // Calendar for the month: bill due days are marked on the grid.
+    var parts = ym.split('-');
+    var year = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+    var days = new Date(year, m, 0).getDate();
+    var firstDow = new Date(year, m - 1, 1).getDay();
+    var cells = '';
+    var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dowNames.forEach(function (d) { cells += '<div class="cal-head">' + d + '</div>'; });
+    var i;
+    for (i = 0; i < firstDow; i++) cells += '<div class="cal-day empty"></div>';
+    for (i = 1; i <= days; i++) {
+      var due = list.filter(function (b) { return b.due === i; });
+      var marks = due.map(function (b) {
+        return '<span class="cal-bill ' + (b.paid ? 'paid' : 'pending') + '">' + esc(billShort(b.name)) + '</span>';
+      }).join('');
+      var today = (ym === D.TODAY.slice(0, 7) && i === parseInt(D.TODAY.slice(8, 10), 10));
+      cells += '<div class="cal-day' + (today ? ' today' : '') + '"><span class="cal-num">' + i + '</span>' + marks + '</div>';
+    }
+
+    return '<section class="hero"><div><h1>Tagihan — monthly bills</h1>' +
+      '<p class="lede">Every bill that comes every month, its due date, and whether it is paid. ' +
+      'Mark one paid and the transaction ledger, dashboard and reports update at once.</p></div>' +
+      monthNav(state, ym) + '</section>' +
+      '<div class="stats">' +
+      statCard('Bills this month', D.fmt(total), list.length + ' recurring bills', '') +
+      statCard('Paid', D.fmt(paidTotal), paidCount + ' of ' + list.length + ' bills paid', 'green') +
+      statCard('Still to pay', D.fmt(total - paidTotal), pending.length ? pending.map(function (b) { return esc(b.name); }).join(', ') : 'All bills are paid', pending.length ? 'orange' : 'green') +
+      '</div>' +
+      '<div class="card"><h2>All bills — ' + D.monthLabel(ym) + '</h2>' +
+      '<div class="tablewrap"><table><thead><tr><th>Bill</th><th>Due</th><th>Category</th><th class="c-amt">Amount</th><th>Status</th><th></th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table></div>' +
+      '<p class="form-note" id="bill-note" role="status"></p></div>' +
+      '<div class="grid2">' +
+      '<div class="card"><h2>Due-date calendar — ' + D.monthLabel(ym) + '</h2>' +
+      '<div class="calendar">' + cells + '</div>' +
+      '<p class="legend-line"><span class="swatch paid">Paid</span> <span class="swatch pending">Still to pay</span> · today is outlined.</p></div>' +
+      '<div class="card"><h2>Debt tracker — ' + esc(debt.name) + '</h2>' +
+      '<p class="bignum">' + D.fmt(debt.paid) + ' <span class="muted">of ' + D.fmt(debt.total) + ' paid</span></p>' +
+      progressBar(debtPct, 'ok') +
+      '<p class="muted">' + debtPct + '% paid · ' + debt.paidCount + ' of ' + debt.termMonths + ' payments made</p>' +
+      '<p>' + esc(debt.note) + ' Remaining: <strong>' + D.fmt(debt.remaining) + '</strong> in ' + debt.remainingCount +
+      ' payments of ' + D.fmt(debt.installment) + '.</p>' +
+      '<p class="muted">The monthly installment is already in the budget as Cicilan — ' +
+      D.fmt(debt.installment) + ' a month, counted in November’s spending.</p></div>' +
+      '</div>';
+  }
+
   function goals(state) {
     var series = D.trendSeries(state);
     var avgSaved = 0;
@@ -209,22 +330,38 @@
       var eta = left <= 0 ? 'Reached — time to celebrate, then pick the next goal.'
         : months !== null ? 'About ' + months + ' month' + (months > 1 ? 's' : '') + ' to go at the current saving pace (' + D.fmt(Math.round(avgSaved)) + ' / month).'
         : 'Add a monthly contribution to see the finish date.';
+      var histRows = (g.history || []).map(function (h) {
+        return '<tr><td>' + esc(h[0]) + '</td><td class="c-amt">' + D.fmt(h[1]) + '</td></tr>';
+      }).join('');
+      var hist = '<table class="mini-table"><thead><tr><th>Month</th><th class="c-amt">Added</th></tr></thead><tbody>' + histRows +
+        '<tr class="total-row"><td><strong>Total saved</strong></td><td class="c-amt"><strong>' + D.fmt(D.goalHistorySum(g)) + '</strong></td></tr>' +
+        '</tbody></table>';
+
       return '<div class="card goal-card"><div class="goal-head"><h3>' + esc(g.name) + '</h3>' +
         '<span class="goal-pct">' + p + '%</span></div>' +
         '<p class="muted">' + esc(g.note) + '</p>' +
         '<p class="bignum">' + D.fmt(g.saved) + ' <span class="muted">of ' + D.fmt(g.target) + '</span></p>' +
         progressBar(p, toneFor(p)) +
-        '<p class="muted">' + esc(eta) + '</p>' +
+        '<p class="muted">' + esc(eta) + '</p>' + hist +
         '<form class="goal-add" data-goal="' + g.id + '">' +
         '<button type="button" class="btn small ghost" data-action="goal-add" data-goal="' + g.id + '" data-amount="100000">+ Rp 100.000</button>' +
         '<label>Custom<input type="number" name="amount" min="1000" step="1000" placeholder="250000"></label>' +
         '<button type="submit" class="btn small">Add money</button></form></div>';
     }).join('');
 
+    var novAlloc = 0;
+    state.goals.forEach(function (g) {
+      (g.history || []).forEach(function (h) { if (h[0] === 'Nov 2026') novAlloc += h[1]; });
+    });
+    var novSaved = D.monthTotals(state, '2026-11').saved;
+
     return '<section class="hero"><div><h1>Savings goals</h1>' +
       '<p class="lede">Three things the family is saving for. Every rupiah saved this month — ' +
-      D.fmt(D.monthTotals(state, '2026-11').saved) + ' in November — can go to one of them.</p></div></section>' +
+      D.fmt(novSaved) + ' in November — can go to one of them.</p></div></section>' +
       '<div class="grid2">' + cards + '</div>' +
+      '<div class="card tip">In November the family put <strong>' + D.fmt(novAlloc) + '</strong> of the ' +
+      D.fmt(novSaved) + ' saved into these goals and kept <strong>' + D.fmt(novSaved - novAlloc) +
+      '</strong> as unallocated cash at home. Every goal balance above is the exact sum of its monthly additions — see the tables on each card.</div>' +
       '<div class="card"><h2>Start a new goal</h2>' +
       '<form id="goal-new" class="form-grid wide">' +
       '<label>Goal name<input type="text" name="name" placeholder="e.g. New motorbike" required maxlength="60"></label>' +
@@ -240,6 +377,34 @@
     var byCat = D.categorySpent(state, ym);
     var t = D.monthTotals(state, ym);
     var prev = D.monthTotals(state, '2026-10');
+    var novT = D.monthTotals(state, '2026-11');
+    var octByCat = D.categorySpent(state, '2026-10');
+    var novByCat = D.categorySpent(state, '2026-11');
+    var vsData = D.CATEGORIES.map(function (c) {
+      return { c: c, o: octByCat[c.id] || 0, n: novByCat[c.id] || 0 };
+    }).sort(function (a, b) { return b.n - a.n; });
+    var vsRows = vsData.map(function (r) {
+      var d = r.n - r.o;
+      var dp = r.o > 0 ? Math.round((d / r.o) * 100) : (r.n > 0 ? 100 : 0);
+      return '<tr><td><span class="dot" style="background:' + r.c.color + '"></span> ' + esc(r.c.name) +
+        '</td><td class="c-amt">' + D.fmt(r.o) + '</td><td class="c-amt">' + D.fmt(r.n) +
+        '</td><td class="c-amt">' + (d >= 0 ? '+' : '−') + D.fmt(Math.abs(d)) +
+        ' <span class="muted">(' + (d >= 0 ? '+' : '−') + Math.abs(dp) + '%)</span></td></tr>';
+    }).join('');
+    var f5320 = D.fiftyThirtyTwenty(state, ym);
+    var ss = D.safeSpend(state, ym);
+    var emgSaved = 0;
+    state.goals.forEach(function (g) { if (g.id === 'g1') emgSaved = g.saved; });
+    var coverMonths = f5320.needs > 0 ? emgSaved / f5320.needs : 0;
+    var avgSaved = series.length ? series.reduce(function (a, s) { return a + (s.income - s.spent); }, 0) / series.length : 0;
+    function emgText(months) {
+      var needed = months * f5320.needs;
+      var short = needed - emgSaved;
+      if (short <= 0) return 'To cover ' + months + ' months the family needs ' + D.fmt(needed) + ' — the fund already holds ' + D.fmt(emgSaved) + '. Covered, with ' + D.fmt(-short) + ' to spare.';
+      var m = avgSaved > 0 ? Math.ceil(short / avgSaved) : null;
+      return 'To cover ' + months + ' months the family needs ' + D.fmt(needed) + ' — ' + D.fmt(short) +
+        ' more than the fund holds today.' + (m !== null ? ' At the current saving pace (' + D.fmt(Math.round(avgSaved)) + ' a month) that takes about ' + m + ' more month' + (m > 1 ? 's' : '') + ' if every rupiah saved goes to the fund.' : '');
+    }
     var rows = D.CATEGORIES.map(function (c) {
       return { name: c.name, color: c.color, spent: byCat[c.id], budget: state.budgets[c.id] || 0 };
     }).sort(function (a, b) { return b.spent - a.spent; });
@@ -273,8 +438,39 @@
       '</div>' +
       '<div class="card"><h2>Spending by category — ' + D.monthLabel(ym) + '</h2>' +
       C.categoryBars(rows) +
-      '<p class="muted">Dark bar = spent, light bar = monthly limit. A red bar means the category went over its limit.</p></div>';
+      '<p class="muted">Dark bar = spent, light bar = monthly limit. A red bar means the category went over its limit.</p></div>' +
+
+      '<div class="grid2">' +
+      '<div class="card"><h2>October vs November, by category</h2>' +
+      '<div class="tablewrap"><table><thead><tr><th>Category</th><th class="c-amt">October</th><th class="c-amt">November</th><th class="c-amt">Change</th></tr></thead><tbody>' +
+      vsRows +
+      '<tr class="total-row"><td><strong>Total spent</strong></td><td class="c-amt"><strong>' + D.fmt(prev.spent) +
+      '</strong></td><td class="c-amt"><strong>' + D.fmt(novT.spent) + '</strong></td><td class="c-amt"><strong>' +
+      (novT.spent >= prev.spent ? '+' : '−') + D.fmt(Math.abs(novT.spent - prev.spent)) + '</strong></td></tr>' +
+      '</tbody></table></div>' +
+      '<p class="muted">November cost ' + D.fmt(novT.spent - prev.spent) + ' more than October (' +
+      (novT.spent >= prev.spent ? '+' : '−') + Math.abs(D.pct(novT.spent - prev.spent, prev.spent)) + '%). Food, transport and school drove the rise.</p></div>' +
+
+      '<div class="card"><h2>50 / 30 / 20 — how November splits</h2>' +
+      '<div class="fifty"><div class="fifty-needs" style="width:' + f5320.needsPct + '%"></div>' +
+      '<div class="fifty-wants" style="width:' + f5320.wantsPct + '%"></div>' +
+      '<div class="fifty-save" style="width:' + f5320.savedPct + '%"></div></div>' +
+      '<ul class="insights">' +
+      '<li><strong>Needs ' + f5320.needsPct + '%</strong> (' + D.fmt(f5320.needs) + ') — rule says 50%. School fees push it over by ' + D.fmt(Math.max(0, f5320.needs - Math.round(f5320.income * 0.5))) + '.</li>' +
+      '<li><strong>Wants ' + f5320.wantsPct + '%</strong> (' + D.fmt(f5320.wants) + ') — rule says 30%. The family wants very little.</li>' +
+      '<li><strong>Saved ' + f5320.savedPct + '%</strong> (' + D.fmt(f5320.saved) + ') — rule says 20%. Above the rule even in the heaviest month.</li>' +
+      '<li><strong>Safe to spend: ' + D.fmt(ss.perDay) + ' a day</strong> — ' + D.fmt(ss.remaining) + ' of budget left over ' + ss.daysLeft + ' days.</li>' +
+      '</ul></div>' +
+      '</div>' +
+
+      '<div class="card"><h2>Emergency-fund calculator</h2>' +
+      '<p class="muted">The emergency fund holds ' + D.fmt(emgSaved) + ' — that covers <strong>' +
+      coverMonths.toFixed(1) + ' months</strong> of needs (' + D.fmt(f5320.needs) + ' a month). ' +
+      'How many months of cover should it hold?</p>' +
+      '<form class="calc-row" id="emg-calc"><label>Months of cover wanted ' +
+      '<input type="number" id="emg-months" min="1" max="12" step="1" value="3"></label></form>' +
+      '<p id="emg-result" role="status">' + emgText(3) + '</p></div>';
   }
 
-  window.BudgetViews = { dashboard: dashboard, transactions: transactions, budgets: budgets, goals: goals, reports: reports };
+  window.BudgetViews = { dashboard: dashboard, transactions: transactions, budgets: budgets, bills: bills, goals: goals, reports: reports };
 })();

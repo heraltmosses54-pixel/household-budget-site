@@ -39,11 +39,11 @@
 
   // Grouped bars: income vs spent per month, with value labels.
   function monthBars(series, width, height) {
-    var padL = 8, padB = 26, padT = 24;
+    var padL = 8, padR = 52, padB = 26, padT = 24;
     var max = 0;
     series.forEach(function (s) { max = Math.max(max, s.income, s.spent); });
     max = Math.ceil(max / 1000000) * 1000000;
-    var innerW = width - padL * 2, innerH = height - padT - padB;
+    var innerW = width - padL - padR, innerH = height - padT - padB;
     var groupW = innerW / series.length;
     var barW = Math.min(26, (groupW - 18) / 2);
     var fmt = window.BudgetData.fmtShort;
@@ -52,9 +52,9 @@
     // gridlines at 0 / half / max
     [0, 0.5, 1].forEach(function (f) {
       var y = padT + innerH * (1 - f);
-      svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (width - padL) + '" y2="' + y +
+      svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (width - padR) + '" y2="' + y +
         '" stroke="#e5e0d5" stroke-width="1"/>';
-      svg += '<text x="' + (width - padL) + '" y="' + (y - 4) + '" font-size="10" fill="#8a8378" text-anchor="end">' +
+      svg += '<text x="' + (width - padR) + '" y="' + (y - 4) + '" font-size="10" fill="#8a8378" text-anchor="end">' +
         fmt(max * f) + '</text>';
     });
     series.forEach(function (s, i) {

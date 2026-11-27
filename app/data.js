@@ -13,7 +13,10 @@
     { id: 'school',    name: 'School',           color: '#7a4fa3' },
     { id: 'household', name: 'Household',        color: '#4d8a8a' },
     { id: 'health',    name: 'Health',           color: '#b04a5e' },
-    { id: 'fun',       name: 'Fun & Snacks',     color: '#c96a2e' }
+    { id: 'fun',       name: 'Fun & Snacks',     color: '#c96a2e' },
+    { id: 'cicilan',   name: 'Cicilan',          color: '#6b4f2a' },
+    { id: 'clothing',  name: 'Clothing',         color: '#a34a7a' },
+    { id: 'giving',    name: 'Arisan & Giving',  color: '#7a8a2e' }
   ];
 
   // [date, description, category, amount, kind] — kind is 'out' or 'in'.
@@ -36,8 +39,6 @@
     ['2026-11-22', 'Minyak goreng & bumbu dapur', 'food', 132000, 'out'],
     ['2026-11-24', 'Belanja harian — warung', 'food', 88000, 'out'],
     ['2026-11-26', 'Resto sederhana — family dinner', 'food', 240000, 'out'],
-    ['2026-11-28', 'Pasar Minggu — vegetables & fish', 'food', 175000, 'out'],
-    ['2026-11-29', 'Snack anak — jajan', 'food', 45000, 'out'],
     // --- November 2026: transport ---
     ['2026-11-04', 'Bensin motor', 'transport', 50000, 'out'],
     ['2026-11-09', 'Bensin motor', 'transport', 55000, 'out'],
@@ -47,7 +48,6 @@
     ['2026-11-21', 'Bensin motor', 'transport', 58000, 'out'],
     ['2026-11-23', 'Servis motor — oil & brake', 'transport', 185000, 'out'],
     ['2026-11-26', 'Bensin motor', 'transport', 50000, 'out'],
-    ['2026-11-28', 'Parkir — mall', 'transport', 32000, 'out'],
     // --- November 2026: bills & internet ---
     ['2026-11-07', 'Listrik PLN', 'bills', 385000, 'out'],
     ['2026-11-07', 'Air PDAM', 'bills', 95000, 'out'],
@@ -73,6 +73,11 @@
     ['2026-11-16', 'Jajan anak — kantin', 'fun', 45000, 'out'],
     ['2026-11-22', 'Es krim keluarga', 'fun', 60000, 'out'],
     ['2026-11-27', 'Mainan — birthday gift', 'fun', 90000, 'out'],
+    // --- November 2026: installments, clothing, giving ---
+    ['2026-11-10', 'Cicilan motor — angsuran ke-28', 'cicilan', 450000, 'out'],
+    ['2026-11-19', 'Baju & sandal anak — pasar', 'clothing', 180000, 'out'],
+    ['2026-11-03', 'Arisan RT — November', 'giving', 100000, 'out'],
+    ['2026-11-07', 'Sedekah Jumat', 'giving', 50000, 'out'],
     // --- October 2026: income ---
     ['2026-10-01', 'Toko Santoso — shop income', 'income', 6400000, 'in'],
     ['2026-10-09', 'Online sales (Ibu) — Shopee & WA', 'income', 1700000, 'in'],
@@ -103,19 +108,55 @@
     ['2026-10-26', 'Vitamin keluarga', 'health', 104000, 'out'],
     ['2026-10-16', 'Jajan anak — kantin', 'fun', 52000, 'out'],
     ['2026-10-19', 'Nonton bioskop — family movie', 'fun', 115000, 'out'],
-    ['2026-10-27', 'Es krim keluarga', 'fun', 55000, 'out']
+    ['2026-10-27', 'Es krim keluarga', 'fun', 55000, 'out'],
+    // --- October 2026: installments, clothing, giving ---
+    ['2026-10-10', 'Cicilan motor — angsuran ke-27', 'cicilan', 450000, 'out'],
+    ['2026-10-24', 'Baju Ibu — pasar', 'clothing', 150000, 'out'],
+    ['2026-10-03', 'Arisan RT — October', 'giving', 100000, 'out']
   ];
 
   var SEED_BUDGETS = {
     food: 2400000, transport: 800000, bills: 900000, school: 1200000,
-    household: 600000, health: 500000, fun: 400000
+    household: 600000, health: 500000, fun: 400000,
+    cicilan: 500000, clothing: 300000, giving: 200000
   };
 
+  // Each goal carries its funding history: [month, amount added].
+  // The rows sum exactly to the goal's saved balance, so the balance
+  // can always be traced back to real monthly savings.
   var SEED_GOALS = [
-    { id: 'g1', name: 'Emergency fund', note: 'For sudden costs — hospital, repairs', target: 10000000, saved: 6250000 },
-    { id: 'g2', name: 'New fridge', note: 'The old one leaks — replace before Lebaran', target: 4500000, saved: 2800000 },
-    { id: 'g3', name: 'Family trip — Dieng', note: 'Two nights in the highlands with the kids', target: 3000000, saved: 900000 }
+    { id: 'g1', name: 'Emergency fund', note: 'For sudden costs — hospital, repairs', target: 10000000, saved: 6250000,
+      history: [['Before Jun 2026', 1000000], ['Jun 2026', 800000], ['Jul 2026', 800000], ['Aug 2026', 700000], ['Sep 2026', 800000], ['Oct 2026', 1500000], ['Nov 2026', 650000]] },
+    { id: 'g2', name: 'New fridge', note: 'The old one leaks — replace before Lebaran', target: 4500000, saved: 2800000,
+      history: [['Before Jun 2026', 500000], ['Jun 2026', 300000], ['Jul 2026', 400000], ['Aug 2026', 300000], ['Sep 2026', 300000], ['Oct 2026', 600000], ['Nov 2026', 400000]] },
+    { id: 'g3', name: 'Family trip — Dieng', note: 'Two nights in the highlands with the kids', target: 3000000, saved: 900000,
+      history: [['Before Jun 2026', 0], ['Jun 2026', 100000], ['Jul 2026', 150000], ['Aug 2026', 100000], ['Sep 2026', 150000], ['Oct 2026', 200000], ['Nov 2026', 200000]] }
   ];
+
+  // Recurring monthly bills. A bill counts as paid when a transaction
+  // whose description contains `match` exists in that month; marking one
+  // paid adds exactly that transaction, so the ledger always agrees.
+  var SEED_BILLS = [
+    { id: 'b1', name: 'Arisan RT', amount: 100000, due: 3, cat: 'giving', match: 'Arisan RT' },
+    { id: 'b2', name: 'SPP anak', amount: 650000, due: 5, cat: 'school', match: 'SPP anak' },
+    { id: 'b3', name: 'Listrik PLN', amount: 385000, due: 7, cat: 'bills', match: 'Listrik PLN' },
+    { id: 'b4', name: 'Air PDAM', amount: 95000, due: 7, cat: 'bills', match: 'Air PDAM' },
+    { id: 'b5', name: 'Internet IndiHome', amount: 299000, due: 10, cat: 'bills', match: 'Internet IndiHome' },
+    { id: 'b6', name: 'Cicilan motor', amount: 450000, due: 10, cat: 'cicilan', match: 'Cicilan motor' },
+    { id: 'b7', name: 'Les piano — Dita', amount: 250000, due: 12, cat: 'school', match: 'Les piano' },
+    { id: 'b8', name: 'Pulsa — both phones', amount: 50000, due: 12, cat: 'bills', match: 'Pulsa' },
+    { id: 'b9', name: 'Iuran sampah RT', amount: 25000, due: 25, cat: 'household', match: 'Iuran sampah RT' }
+  ];
+
+  // The one loan the family is still paying off.
+  var SEED_DEBT = {
+    name: 'Motorbike loan — Honda Beat', total: 18000000, installment: 450000,
+    paidCount: 28, termMonths: 40,
+    note: 'Started Aug 2024, Rp 450.000 a month. 28 of 40 payments made — 12 to go, done Oct 2027.'
+  };
+
+  // "Today" for the site's figures — the last day with real transactions.
+  var TODAY = '2026-11-27';
 
   // Monthly aggregates for June–September (full transactions kept for Oct + Nov).
   var SEED_TREND = [
@@ -134,9 +175,23 @@
     var budgets = {};
     Object.keys(SEED_BUDGETS).forEach(function (k) { budgets[k] = SEED_BUDGETS[k]; });
     var goals = SEED_GOALS.map(function (g) {
-      return { id: g.id, name: g.name, note: g.note, target: g.target, saved: g.saved };
+      return { id: g.id, name: g.name, note: g.note, target: g.target, saved: g.saved,
+        history: g.history.map(function (h) { return [h[0], h[1]]; }) };
     });
     return { transactions: txs, budgets: budgets, goals: goals, nextId: txs.length + 1, nextGoal: 4 };
+  }
+
+  // Attach seed funding histories to goals loaded from an older save.
+  function normaliseGoals(state) {
+    state.goals.forEach(function (g) {
+      if (!g.history) {
+        SEED_GOALS.forEach(function (sg) {
+          if (sg.id === g.id) g.history = sg.history.map(function (h) { return [h[0], h[1]]; });
+        });
+        if (!g.history) g.history = [];
+      }
+    });
+    return state;
   }
 
   function loadState() {
@@ -144,7 +199,7 @@
       var raw = window.localStorage.getItem(STORE_KEY);
       if (raw) {
         var parsed = JSON.parse(raw);
-        if (parsed && parsed.transactions && parsed.budgets && parsed.goals) return parsed;
+        if (parsed && parsed.transactions && parsed.budgets && parsed.goals) return normaliseGoals(parsed);
       }
     } catch (e) { /* storage unavailable: fall through to seed */ }
     return freshState();
@@ -217,12 +272,85 @@
     return series;
   }
 
+  function daysInMonth(ym) {
+    var parts = ym.split('-');
+    return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10), 0).getDate();
+  }
+
+  // Days still to spend in a month: only the current month has any left.
+  function daysLeft(ym) {
+    if (ym !== TODAY.slice(0, 7)) return 0;
+    return Math.max(0, daysInMonth(ym) - parseInt(TODAY.slice(8, 10), 10));
+  }
+
+  // Safe to spend per day: unspent budget divided by the days left.
+  function safeSpend(state, ym) {
+    var byCat = categorySpent(state, ym);
+    var totalBudget = 0, spent = 0;
+    CATEGORIES.forEach(function (c) {
+      totalBudget += state.budgets[c.id] || 0;
+      spent += byCat[c.id];
+    });
+    var left = daysLeft(ym);
+    return {
+      totalBudget: totalBudget, spent: spent, remaining: totalBudget - spent,
+      daysLeft: left, perDay: left > 0 ? Math.floor((totalBudget - spent) / left) : 0
+    };
+  }
+
+  // 50/30/20 check: needs = food, transport, bills, school, household,
+  // health, installments; wants = fun, clothing, giving; save = what's left.
+  var NEEDS = ['food', 'transport', 'bills', 'school', 'household', 'health', 'cicilan'];
+  var WANTS = ['fun', 'clothing', 'giving'];
+
+  function fiftyThirtyTwenty(state, ym) {
+    var byCat = categorySpent(state, ym);
+    var t = monthTotals(state, ym);
+    var needs = 0, wants = 0;
+    NEEDS.forEach(function (c) { needs += byCat[c] || 0; });
+    WANTS.forEach(function (c) { wants += byCat[c] || 0; });
+    return {
+      needs: needs, wants: wants, saved: t.saved, income: t.income,
+      needsPct: pct(needs, t.income), wantsPct: pct(wants, t.income), savedPct: pct(t.saved, t.income)
+    };
+  }
+
+  // Recurring bills with paid/pending status for a month.
+  function billsFor(state, ym) {
+    var txs = monthTx(state, ym);
+    return SEED_BILLS.map(function (b) {
+      var paidTx = null;
+      if (b.match) {
+        txs.forEach(function (t) {
+          if (t.kind === 'out' && t.desc.indexOf(b.match) !== -1) paidTx = t;
+        });
+      }
+      return { id: b.id, name: b.name, amount: b.amount, due: b.due, cat: b.cat,
+        match: b.match, paid: !!paidTx, paidTx: paidTx };
+    });
+  }
+
+  function debtInfo() {
+    var d = SEED_DEBT;
+    return { name: d.name, total: d.total, installment: d.installment,
+      paidCount: d.paidCount, termMonths: d.termMonths, note: d.note,
+      paid: d.installment * d.paidCount, remaining: d.total - d.installment * d.paidCount,
+      remainingCount: d.termMonths - d.paidCount };
+  }
+
+  function goalHistorySum(g) {
+    if (!g.history) return 0;
+    return g.history.reduce(function (a, h) { return a + h[1]; }, 0);
+  }
+
   window.BudgetData = {
-    CATEGORIES: CATEGORIES, SEED_TREND: SEED_TREND,
+    CATEGORIES: CATEGORIES, SEED_TREND: SEED_TREND, SEED_DEBT: SEED_DEBT, TODAY: TODAY,
     loadState: loadState, saveState: saveState, resetState: resetState,
     monthOf: monthOf, monthLabel: monthLabel, monthTx: monthTx,
     monthTotals: monthTotals, categorySpent: categorySpent,
     categoryById: categoryById, fmt: fmt, fmtShort: fmtShort, pct: pct,
-    trendSeries: trendSeries
+    trendSeries: trendSeries, daysLeft: daysLeft, safeSpend: safeSpend,
+    fiftyThirtyTwenty: fiftyThirtyTwenty, billsFor: billsFor,
+    debtInfo: debtInfo, goalHistorySum: goalHistorySum
   };
 })();
