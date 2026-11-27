@@ -34,7 +34,7 @@ records. Data is kept in the browser (localStorage) — nothing leaves the devic
 - `app/app.js` — hash router, forms and event wiring.
 - `main.ts` — the hand-in program (copies `app/` + `screenshots/`, writes `dossier.json`).
 - `vendor/makefun-frontend.ts` — the kit's dossier library, unchanged.
-- `screenshots/` — 3 desktop + 1 phone render of the site running.
+- `screenshots/` — 4 desktop renders of the site running (Dashboard, Transactions, Bills, Reports).
 
 ## Run it
 
