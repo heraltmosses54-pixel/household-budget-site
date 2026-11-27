@@ -196,7 +196,19 @@ td input, td select { font: inherit; padding: 6px 8px; border: 1px solid var(--l
 .swatch.paid { background: var(--green-soft); color: var(--green); }
 .swatch.pending { background: var(--amber-soft); color: #9a6d00; }
 
+/* v3 additions: search + sort, month pace, daily chart, planners */
+.tools-row { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.tools-row input[type="search"] { flex: 1; min-width: 200px; font: inherit; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+.sort-label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.sort-label select, .calc-row select { font: inherit; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--ink); }
+.weekchips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.weekchip { background: var(--green-soft); color: var(--green); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+.weekchip strong { margin-right: 4px; }
+#whatif-result, #plan-result { font-size: 14px; margin-top: 12px; }
+
 @media (max-width: 720px) {
   .cal-day { min-height: 40px; }
   .cal-bill { font-size: 9px; }
+  .tools-row { flex-direction: column; align-items: stretch; }
+  .tools-row input[type="search"] { min-width: 0; }
 }

@@ -82,6 +82,11 @@
     var emergency = null;
     state.goals.forEach(function (g) { if (g.id === 'g1') emergency = g; });
     var coverMonths = (emergency && f5320.needs > 0) ? emergency.saved / f5320.needs : 0;
+    var p = D.pace(state, ym);
+    var big = D.biggestPurchase(state, ym);
+    var bigDesc = big.desc.replace(/ — (January|February|March|April|May|June|July|August|September|October|November|December)$/, '');
+    var busy = D.busiestDay(state, ym);
+    var daysWithSpend = D.dailySpend(state, ym).filter(function (d) { return d.spent > 0; }).length;
 
     return '<section class="hero">' +
       '<div><h1>Every rupiah has a job.</h1>' +
@@ -132,7 +137,24 @@
       '<li><strong>50 / 30 / 20 check:</strong> needs ' + f5320.needsPct + '% (rule: 50%), wants ' + f5320.wantsPct +
       '% (rule: 30%), saved ' + f5320.savedPct + '% (rule: 20%). Needs run heavy on school fees — but the family still saves above the rule.</li>' +
       '<li><strong>Emergency fund covers ' + coverMonths.toFixed(1) + ' months</strong> of needs. The rule of thumb is 3–6 months — try the calculator on the <a href="#/reports">Reports</a> page.</li>' +
+      '<li><strong>Biggest single purchase:</strong> ' + esc(bigDesc) + ' — ' + D.fmt(big.amount) + ' on ' + big.date + '. The busiest day was ' + busy.day + ' ' + D.monthLabel(ym).split(' ')[0] + ' at ' + D.fmt(busy.spent) + ' across ' + busy.count + ' purchases.</li>' +
       '</ul></div>' +
+      '</div>' +
+
+      '<div class="grid2">' +
+      '<div class="card"><h2>Month pace — ' + D.monthLabel(ym) + '</h2>' +
+      '<p class="bignum">' + D.fmt(p.avgPerDay) + ' <span class="muted">a day, over ' + p.elapsed + ' of ' + p.days + ' days</span></p>' +
+      '<p>At this pace the month ends at <strong>' + D.fmt(p.projectedSpent) + '</strong> spent and <strong>' +
+      D.fmt(p.projectedSaved) + '</strong> saved — ' +
+      (p.onTrack ? 'inside the ' + D.fmt(p.totalBudget) + ' budget.' : 'over the ' + D.fmt(p.totalBudget) + ' budget by ' + D.fmt(p.projectedSpent - p.totalBudget) + '.') + '</p>' +
+      '<p class="muted">Safe to spend is ' + D.fmt(ss.perDay) + ' a day for the ' + ss.daysLeft + ' days still left.</p></div>' +
+
+      '<div class="card"><h2>Biggest &amp; busiest</h2>' +
+      '<p><strong>Biggest single purchase:</strong> ' + esc(bigDesc) + ' — ' + D.fmt(big.amount) + ' on ' + big.date +
+      ' (' + esc(D.categoryById(big.cat).name) + ').</p>' +
+      '<p><strong>Busiest day:</strong> ' + busy.day + ' ' + D.monthLabel(ym) + ' — ' + D.fmt(busy.spent) +
+      ' across ' + busy.count + ' purchases.</p>' +
+      '<p class="muted">The family spent on ' + daysWithSpend + ' of the ' + p.elapsed + ' days so far — the quiet days cost nothing.</p></div>' +
       '</div>' +
 
       '<div class="grid2">' +
@@ -151,11 +173,25 @@
       '</div>';
   }
 
-  function transactions(state, ym, filter) {
+  function transactions(state, ym, filter, search, sort) {
+    search = search || '';
+    sort = sort || 'date-desc';
     var txs = D.monthTx(state, ym).slice().sort(function (a, b) { return b.date.localeCompare(a.date); });
     var shown = txs;
     if (filter === 'in') shown = txs.filter(function (t) { return t.kind === 'in'; });
     else if (filter && filter !== 'all') shown = txs.filter(function (t) { return t.kind === 'out' && t.cat === filter; });
+    if (search) {
+      var q = search.toLowerCase();
+      shown = shown.filter(function (t) {
+        var cat = t.kind === 'in' ? 'income' : D.categoryById(t.cat).name;
+        return t.desc.toLowerCase().indexOf(q) !== -1 || cat.toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    shown = shown.slice();
+    if (sort === 'date-asc') shown.sort(function (a, b) { return a.date.localeCompare(b.date); });
+    else if (sort === 'amount-desc') shown.sort(function (a, b) { return b.amount - a.amount; });
+    else if (sort === 'amount-asc') shown.sort(function (a, b) { return a.amount - b.amount; });
+    else shown.sort(function (a, b) { return b.date.localeCompare(a.date); });
     var t = D.monthTotals(state, ym);
     var chips = '<button class="chipbtn' + (filter === 'all' ? ' on' : '') + '" data-action="filter" data-filter="all">All</button>' +
       '<button class="chipbtn' + (filter === 'in' ? ' on' : '') + '" data-action="filter" data-filter="in">Income</button>' +
@@ -175,6 +211,9 @@
     }).join('');
 
     var catOpts = D.CATEGORIES.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + '</option>'; }).join('');
+    var sortOpts = [['date-desc', 'Newest first'], ['date-asc', 'Oldest first'], ['amount-desc', 'Biggest amount'], ['amount-asc', 'Smallest amount']].map(function (o) {
+      return '<option value="' + o[0] + '"' + (sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+    }).join('');
 
     return '<section class="hero"><div><h1>Transactions</h1>' +
       '<p class="lede">Every rupiah in and out of the house in ' + D.monthLabel(ym) +
@@ -186,7 +225,10 @@
       statCard('Saved', D.fmt(t.saved), D.pct(t.saved, t.income) + '% of income kept', 'green') +
       '</div>' +
       '<div class="card"><div class="card-head"><h2>All transactions</h2>' +
-      '<button class="btn small ghost" data-action="export-csv">Export CSV</button></div><div class="chips">' + chips + '</div>' +
+      '<button class="btn small ghost" data-action="export-csv">Export CSV</button></div>' +
+      '<div class="tools-row"><input type="search" id="tx-search" placeholder="Search — e.g. pasar, bensin, SPP…" value="' + esc(search) + '" aria-label="Search transactions">' +
+      '<label class="sort-label">Sort <select id="tx-sort">' + sortOpts + '</select></label></div>' +
+      '<div class="chips">' + chips + '</div>' +
       '<div class="tablewrap"><table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="c-amt">Amount</th><th></th></tr></thead>' +
       '<tbody>' + (rows || '<tr><td colspan="5" class="muted">Nothing here yet — add the first one below.</td></tr>') + '</tbody></table></div></div>' +
       '<div class="card"><h2>Add a transaction</h2>' +
@@ -372,6 +414,27 @@
       '</form><p class="form-note" id="goal-note" role="status"></p></div>';
   }
 
+  // Plain-language result lines for the two planner tools; app.js reuses
+  // them so the live updates read exactly like the first render.
+  function whatIfText(w) {
+    if (w.cutNeeded <= 0) {
+      return 'Saving ' + w.targetPct + '% means spending at most ' + D.fmt(w.allowedSpend) +
+        ' a month — the family already spends ' + D.fmt(w.spent) + ', so the target is met with ' +
+        D.fmt(w.allowedSpend - w.spent) + ' to spare.';
+    }
+    return 'Saving ' + w.targetPct + '% means spending at most ' + D.fmt(w.allowedSpend) +
+      ' a month — ' + D.fmt(w.cutNeeded) + ' less than the ' + D.fmt(w.spent) +
+      ' spent. Spread across the biggest categories, that is roughly: ' +
+      w.cuts.map(function (c) { return c.name + ' −' + D.fmt(c.cut); }).join(', ') + '.';
+  }
+
+  function goalPlanText(g, monthly, plan) {
+    if (!monthly || monthly <= 0) return 'Enter a monthly amount to see the finish date for ' + g.name + '.';
+    if (plan.months === 0) return g.name + ' is already reached — time to celebrate, then pick the next goal.';
+    return 'At ' + D.fmt(monthly) + ' a month, the remaining ' + D.fmt(plan.remaining) + ' for ' + g.name +
+      ' takes about ' + plan.months + ' month' + (plan.months > 1 ? 's' : '') + ' — done around ' + plan.finish + '.';
+  }
+
   function reports(state, ym) {
     var series = D.trendSeries(state);
     var byCat = D.categorySpent(state, ym);
@@ -412,6 +475,19 @@
     var over = rows.filter(function (r) { return r.spent > r.budget; });
     var rate = D.pct(t.saved, t.income), prevRate = D.pct(prev.saved, prev.income);
     var best = series.slice().sort(function (a, b) { return (b.income - b.spent) - (a.income - a.spent); })[0];
+    var daily = D.dailySpend(state, ym);
+    var weeks = D.weeklySpend(state, ym);
+    var weekChips = weeks.map(function (w) {
+      return '<span class="weekchip"><strong>' + esc(w.label) + '</strong> ' + D.fmt(w.spent) + ' · ' + w.count + ' buys</span>';
+    }).join('');
+    var busy = D.busiestDay(state, ym);
+    var whatif = D.whatIf(state, ym, 30);
+    var planGoal = state.goals[0];
+    var planMonthly = 500000;
+    var plan = D.goalPlan(planGoal, planMonthly);
+    var planOpts = state.goals.map(function (g) {
+      return '<option value="' + g.id + '">' + esc(g.name) + '</option>';
+    }).join('');
     var insights = [
       '<strong>' + esc(top.name) + '</strong> is the biggest spend at ' + D.fmt(top.spent) +
       ' — ' + D.pct(top.spent, t.spent) + '% of everything the family spent in ' + D.monthLabel(ym) + '.',
@@ -439,6 +515,28 @@
       '<div class="card"><h2>Spending by category — ' + D.monthLabel(ym) + '</h2>' +
       C.categoryBars(rows) +
       '<p class="muted">Dark bar = spent, light bar = monthly limit. A red bar means the category went over its limit.</p></div>' +
+
+      '<div class="card"><h2>Daily spending — ' + D.monthLabel(ym) + '</h2>' +
+      C.dailyBars(daily, 640, 220) +
+      '<p class="legend-line"><span class="dot" style="background:#e8a13a"></span>Busiest day &nbsp; <span style="color:#b04a5e">- - average ' + D.fmt(Math.round(t.spent / daily.length)) + ' a day</span></p>' +
+      '<div class="weekchips">' + weekChips + '</div>' +
+      '<p class="muted">Most days are small market runs. The spikes are the bills week (1–7 ' + D.monthLabel(ym).split(' ')[0] +
+      ') and the school fees — the busiest day was the ' + busy.day + 'th at ' + D.fmt(busy.spent) + '.</p></div>' +
+
+      '<div class="grid2">' +
+      '<div class="card"><h2>What-if: save more</h2>' +
+      '<p class="muted">November’s income is ' + D.fmt(t.income) + ' and the family spent ' + D.fmt(t.spent) +
+      '. What if they wanted to save a bigger share?</p>' +
+      '<form class="calc-row"><label>Save this much of income (%) ' +
+      '<input type="number" id="whatif-pct" min="0" max="60" step="5" value="30"></label></form>' +
+      '<p id="whatif-result" role="status">' + whatIfText(whatif) + '</p></div>' +
+
+      '<div class="card"><h2>Goal finish planner</h2>' +
+      '<p class="muted">Pick a goal and a monthly amount — see when it is reached.</p>' +
+      '<form class="calc-row"><label>Goal <select id="plan-goal">' + planOpts + '</select></label>' +
+      '<label>Per month (Rp) <input type="number" id="plan-amt" min="0" step="50000" value="500000"></label></form>' +
+      '<p id="plan-result" role="status">' + goalPlanText(planGoal, planMonthly, plan) + '</p></div>' +
+      '</div>' +
 
       '<div class="grid2">' +
       '<div class="card"><h2>October vs November, by category</h2>' +
@@ -472,5 +570,5 @@
       '<p id="emg-result" role="status">' + emgText(3) + '</p></div>';
   }
 
-  window.BudgetViews = { dashboard: dashboard, transactions: transactions, budgets: budgets, bills: bills, goals: goals, reports: reports };
+  window.BudgetViews = { dashboard: dashboard, transactions: transactions, budgets: budgets, bills: bills, goals: goals, reports: reports, whatIfText: whatIfText, goalPlanText: goalPlanText };
 })();

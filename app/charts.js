@@ -49,13 +49,12 @@
     var fmt = window.BudgetData.fmtShort;
     var svg = '<svg viewBox="0 0 ' + width + ' ' + height + '" width="100%" height="' + height +
       '" role="img" aria-label="Income versus spending by month">';
-    // gridlines at 0 / half / max
+    // Gridlines first; their value labels are drawn last so no bar
+    // can paint over them.
     [0, 0.5, 1].forEach(function (f) {
       var y = padT + innerH * (1 - f);
       svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (width - padR) + '" y2="' + y +
         '" stroke="#e5e0d5" stroke-width="1"/>';
-      svg += '<text x="' + (width - padR) + '" y="' + (y - 4) + '" font-size="10" fill="#8a8378" text-anchor="end">' +
-        fmt(max * f) + '</text>';
     });
     series.forEach(function (s, i) {
       var gx = padL + i * groupW + (groupW - barW * 2 - 6) / 2;
@@ -67,6 +66,11 @@
         '" rx="3" fill="#c96a2e"><title>Spent ' + esc(s.month) + ': ' + fmt(s.spent) + '</title></rect>';
       svg += '<text x="' + (padL + i * groupW + groupW / 2).toFixed(1) + '" y="' + (height - 8) +
         '" font-size="11" fill="#5c564a" text-anchor="middle">' + esc(s.month) + '</text>';
+    });
+    [0, 0.5, 1].forEach(function (f) {
+      var y = padT + innerH * (1 - f);
+      svg += '<text x="' + (width - padR) + '" y="' + (y - 4) + '" font-size="10" fill="#8a8378" text-anchor="end">' +
+        fmt(max * f) + '</text>';
     });
     svg += '</svg>';
     return svg;
@@ -96,5 +100,55 @@
     return html + '</div>';
   }
 
-  window.BudgetCharts = { donut: donut, monthBars: monthBars, categoryBars: categoryBars, esc: esc };
+  // Daily bars: one bar per day of the month. The tallest day is amber,
+  // the rest green; a dashed line marks the daily average.
+  function dailyBars(days, width, height) {
+    var padL = 8, padR = 56, padB = 26, padT = 18;
+    var max = 0, total = 0, n = 0;
+    days.forEach(function (d) { max = Math.max(max, d.spent); total += d.spent; if (d.spent > 0) n++; });
+    max = Math.max(max, 1);
+    var avg = n > 0 ? total / days.length : 0;
+    var innerW = width - padL - padR, innerH = height - padT - padB;
+    var slotW = innerW / days.length;
+    var barW = Math.max(4, Math.min(16, slotW - 3));
+    var fmt = window.BudgetData.fmtShort;
+    var svg = '<svg viewBox="0 0 ' + width + ' ' + height + '" width="100%" height="' + height +
+      '" role="img" aria-label="Spending per day">';
+    // Gridlines + average line first; all text labels are drawn last so
+    // no bar can paint over them.
+    [0, 0.5, 1].forEach(function (f) {
+      var y = padT + innerH * (1 - f);
+      svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (width - padR) + '" y2="' + y +
+        '" stroke="#e5e0d5" stroke-width="1"/>';
+    });
+    var yAvg = padT + innerH - (avg / max) * innerH;
+    svg += '<line x1="' + padL + '" y1="' + yAvg.toFixed(1) + '" x2="' + (width - padR) + '" y2="' + yAvg.toFixed(1) +
+      '" stroke="#b04a5e" stroke-width="1" stroke-dasharray="5 4"/>';
+    var maxDay = days[0];
+    days.forEach(function (d) { if (d.spent > maxDay.spent) maxDay = d; });
+    days.forEach(function (d, i) {
+      var h = (d.spent / max) * innerH;
+      var x = padL + i * slotW + (slotW - barW) / 2;
+      var y = padT + innerH - h;
+      var col = d === maxDay && d.spent > 0 ? '#e8a13a' : '#2e7d5b';
+      svg += '<rect x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + Math.max(h, d.spent > 0 ? 2 : 0).toFixed(1) +
+        '" rx="2" fill="' + col + '"><title>Day ' + d.day + ': ' + fmt(d.spent) + ' in ' + d.count + ' purchase' + (d.count === 1 ? '' : 's') + '</title></rect>';
+    });
+    [0, 0.5, 1].forEach(function (f) {
+      var y = padT + innerH * (1 - f);
+      svg += '<text x="' + (width - padR + 4) + '" y="' + (y + 3) + '" font-size="10" fill="#8a8378">' +
+        fmt(max * f) + '</text>';
+    });
+    svg += '<text x="' + (width - padR + 4) + '" y="' + (yAvg - 4).toFixed(1) + '" font-size="10" fill="#b04a5e">avg ' + fmt(avg) + '</text>';
+    days.forEach(function (d, i) {
+      if ((d.day === 1 || d.day % 5 === 0)) {
+        svg += '<text x="' + (padL + i * slotW + slotW / 2).toFixed(1) + '" y="' + (height - 8) +
+          '" font-size="10" fill="#5c564a" text-anchor="middle">' + d.day + '</text>';
+      }
+    });
+    svg += '</svg>';
+    return svg;
+  }
+
+  window.BudgetCharts = { donut: donut, monthBars: monthBars, categoryBars: categoryBars, dailyBars: dailyBars, esc: esc };
 })();

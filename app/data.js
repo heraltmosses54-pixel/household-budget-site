@@ -343,6 +343,108 @@
     return g.history.reduce(function (a, h) { return a + h[1]; }, 0);
   }
 
+  // Spending per calendar day of a month: one entry per day, expenses only.
+  function dailySpend(state, ym) {
+    var days = daysInMonth(ym);
+    var out = [];
+    for (var d = 1; d <= days; d++) out.push({ day: d, spent: 0, count: 0 });
+    monthTx(state, ym).forEach(function (t) {
+      if (t.kind !== 'out') return;
+      var i = parseInt(t.date.slice(8, 10), 10) - 1;
+      if (i >= 0 && i < out.length) { out[i].spent += t.amount; out[i].count++; }
+    });
+    return out;
+  }
+
+  // Spending per week of a month: days 1-7, 8-14, 15-21, 22-28, 29-end.
+  function weeklySpend(state, ym) {
+    var days = dailySpend(state, ym);
+    var ranges = [[1, 7], [8, 14], [15, 21], [22, 28], [29, days.length]];
+    return ranges.map(function (r) {
+      var spent = 0, count = 0;
+      days.forEach(function (d) {
+        if (d.day >= r[0] && d.day <= r[1]) { spent += d.spent; count += d.count; }
+      });
+      var mon = monthLabel(ym).split(' ')[0].slice(0, 3);
+      return { label: r[0] + '–' + r[1] + ' ' + mon, spent: spent, count: count };
+    });
+  }
+
+  // The month's pace: what the family spends a day so far, and where the
+  // month lands if it keeps going at that pace. Only the current month
+  // (the one TODAY sits in) has days elapsed; a closed month projects
+  // from its own full length.
+  function pace(state, ym) {
+    var t = monthTotals(state, ym);
+    var totalBudget = 0;
+    CATEGORIES.forEach(function (c) { totalBudget += state.budgets[c.id] || 0; });
+    var days = daysInMonth(ym);
+    var elapsed = ym === TODAY.slice(0, 7) ? parseInt(TODAY.slice(8, 10), 10) : days;
+    var avg = elapsed > 0 ? Math.floor(t.spent / elapsed) : 0;
+    var projected = avg * days;
+    return {
+      elapsed: elapsed, days: days, avgPerDay: avg,
+      projectedSpent: projected, projectedSaved: t.income - projected,
+      totalBudget: totalBudget, onTrack: projected <= totalBudget
+    };
+  }
+
+  // The single biggest purchase of a month (expenses only).
+  function biggestPurchase(state, ym) {
+    var best = null;
+    monthTx(state, ym).forEach(function (t) {
+      if (t.kind === 'out' && (!best || t.amount > best.amount)) best = t;
+    });
+    return best;
+  }
+
+  // The busiest spending day of a month.
+  function busiestDay(state, ym) {
+    var days = dailySpend(state, ym);
+    var best = days[0];
+    days.forEach(function (d) { if (d.spent > best.spent) best = d; });
+    return best;
+  }
+
+  // Month label n months after a 'YYYY-MM' month, e.g. ('2026-11', 8) -> 'Jul 2027'.
+  function monthAddLabel(ym, n) {
+    var parts = ym.split('-');
+    var y = parseInt(parts[0], 10), m = parseInt(parts[1], 10) - 1 + n;
+    y += Math.floor(m / 12); m = m % 12;
+    var names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return names[m] + ' ' + y;
+  }
+
+  // Goal planner: how many months until a goal is reached at a fixed
+  // monthly contribution, and which month that lands in.
+  function goalPlan(goal, monthly) {
+    var remaining = Math.max(0, goal.target - goal.saved);
+    if (remaining <= 0) return { remaining: 0, months: 0, finish: 'already reached' };
+    if (!monthly || monthly <= 0) return { remaining: remaining, months: null, finish: null };
+    var months = Math.ceil(remaining / monthly);
+    return { remaining: remaining, months: months, finish: monthAddLabel('2026-11', months) };
+  }
+
+  // What-if planner: to save targetPct% of this month's income, how much
+  // may the family spend in total, how much must spending fall, and which
+  // categories would carry the cut if it were spread in proportion to
+  // what each category spends now.
+  function whatIf(state, ym, targetPct) {
+    var t = monthTotals(state, ym);
+    var byCat = categorySpent(state, ym);
+    var allowed = Math.round(t.income * (100 - targetPct) / 100);
+    var cut = t.spent - allowed;
+    var cuts = [];
+    if (cut > 0 && t.spent > 0) {
+      cuts = CATEGORIES.map(function (c) {
+        return { name: c.name, spent: byCat[c.id], cut: Math.round(cut * byCat[c.id] / t.spent) };
+      }).filter(function (r) { return r.cut > 0; })
+        .sort(function (a, b) { return b.cut - a.cut; }).slice(0, 3);
+    }
+    return { income: t.income, spent: t.spent, targetPct: targetPct,
+      allowedSpend: allowed, cutNeeded: cut, cuts: cuts };
+  }
+
   window.BudgetData = {
     CATEGORIES: CATEGORIES, SEED_TREND: SEED_TREND, SEED_DEBT: SEED_DEBT, TODAY: TODAY,
     loadState: loadState, saveState: saveState, resetState: resetState,
@@ -351,6 +453,9 @@
     categoryById: categoryById, fmt: fmt, fmtShort: fmtShort, pct: pct,
     trendSeries: trendSeries, daysLeft: daysLeft, safeSpend: safeSpend,
     fiftyThirtyTwenty: fiftyThirtyTwenty, billsFor: billsFor,
-    debtInfo: debtInfo, goalHistorySum: goalHistorySum
+    debtInfo: debtInfo, goalHistorySum: goalHistorySum,
+    dailySpend: dailySpend, weeklySpend: weeklySpend, pace: pace,
+    biggestPurchase: biggestPurchase, busiestDay: busiestDay,
+    monthAddLabel: monthAddLabel, goalPlan: goalPlan, whatIf: whatIf
   };
 })();
