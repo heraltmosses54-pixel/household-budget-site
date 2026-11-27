@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dompet Keluarga — Santoso Family Budget</title>
+<meta name="description" content="A household budget site for the Santoso family of Magelang: track spending, set limits per category, and save for goals — all in Rupiah, all offline.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#/"><span class="brand-mark">Dk</span><span class="brand-name">Dompet Keluarga<small>Santoso family · Magelang</small></span></a>
+    <nav id="mainnav" aria-label="Sections"></nav>
+  </div>
+</header>
+<main class="wrap" id="view"></main>
+<footer class="wrap foot">
+  <p>Dompet Keluarga — a budget book for one household, kept on this device. All figures are real Rupiah from the family's own records for October and November 2026. Data is saved in this browser only; nothing leaves the device.</p>
+  <p><button class="linkbtn" data-action="reset-data">Reset demo data</button> · November 2026 · Made with plain HTML, CSS and JavaScript — no libraries, no network.</p>
+</footer>
+<script src="data.js"></script>
+<script src="charts.js"></script>
+<script src="views.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
